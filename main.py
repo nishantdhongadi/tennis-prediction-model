@@ -2,26 +2,29 @@ import pandas as pd
 import glob
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
-
 
 # importing all csv files
-csv_files = glob.glob('data/*.csv')
+csv_files = glob.glob('training_data/*.csv')
+testing_files = glob.glob('testing_data/*.csv')
+testing_files = pd.read_csv(testing_files)
 
-data_0523 = pd.DataFrame()
+training_data = pd.DataFrame()
 
 for file in csv_files:
     
     data = pd.read_csv(file)
-    data_0523 = pd.concat([data_0523, data])
+    training_data = pd.concat([training_data, data])
 
-categorical_features = ['tourney_id', 'tourney_name', 'surface', 'tourney_level', 'winner_id', 'winner_name', 'winner_hand', 'winner_ioc', 'loser_id', 'loser_name', 'loser_hand', 'loser_ioc', 'score', 'round']
-numerical_features = ['draw_size', 'tourney_date', 'match_num', 'winner_seed', 'winner_ht', 'winner_age', 'loser_seed', 'loser_ht', 'loser_age', 'best_of', 'minutes', 'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_2ndWon', 'w_SvGms', 'w_bpSaved', 'w_bpFaced', 'l_ace', 'l_df', 'l_svpt', 'l_1stIn', 'l_1stWon', 'l_2ndWon', 'l_SvGms', 'l_bpSaved', 'l_bpFaced', 'winner_rank', 'winner_rank_points', 'loser_rank', 'loser_rank_points']
+selected_columns = [
+    'tourney_id', 'tourney_name', 'surface', 'tourney_level', 'tourney_date',
+    'winner_id', 'winner_name', 'winner_hand', 'winner_ht', 'winner_ioc', 'winner_age', 'winner_rank', 'winner_rank_points',
+    'loser_id', 'loser_name', 'loser_hand', 'loser_ht', 'loser_ioc', 'loser_age', 'loser_rank', 'loser_rank_points',
+    'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_2ndWon', 'w_SvGms', 'w_bpSaved', 'w_bpFaced',
+    'l_ace', 'l_df', 'l_svpt', 'l_1stIn', 'l_1stWon', 'l_2ndWon', 'l_SvGms', 'l_bpSaved', 'l_bpFaced'
+]
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), numerical_features),
-        ('cat', OneHotEncoder(), categorical_features)])
+training_data = training_data[selected_columns]
 
-df = preprocessor.fit_transform(data_0523)
+missing_values = training_data.isnull().sum()
 
+print(missing_values)
