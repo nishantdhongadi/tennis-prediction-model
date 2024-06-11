@@ -5,16 +5,23 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import cross_val_score
 
-training_files = glob.glob('training_data/*.csv')           # Imports all training csv files
 
-testing_file = glob.glob('testing_data/*.csv')[0]           # Imports the testing csv file
-testing_data = pd.read_csv(testing_file)
+''' Importing and Preprocessing Data '''
 
-training_data = pd.DataFrame()                              # Initializes an empty DataFrame for training data
+training_files = glob.glob('training_data/*.csv')
+testing_files = glob.glob('testing_data/*.csv')              
 
-for file in training_files:                                 # Concatenates all training data into one DataFrame
+training_data = pd.DataFrame()                              
+testing_data = pd.DataFrame()                                  
+
+for file in training_files:                                 
     data = pd.read_csv(file)
     training_data = pd.concat([training_data, data], ignore_index=True)
+    
+    
+for file in testing_files:                                  
+    data = pd.read_csv(file)
+    testing_data = pd.concat([testing_data, data], ignore_index=True)
 
 # Defines selected columns + ignored commonly unused/irrelevant columns
 selected_columns = [
@@ -24,6 +31,7 @@ selected_columns = [
     'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_2ndWon', 'w_SvGms', 'w_bpSaved', 'w_bpFaced',
     'l_ace', 'l_df', 'l_svpt', 'l_1stIn', 'l_1stWon', 'l_2ndWon', 'l_SvGms', 'l_bpSaved', 'l_bpFaced'
 ]
+
 training_data = training_data[selected_columns]
 testing_data = testing_data[selected_columns]
 
@@ -49,7 +57,10 @@ check_missing_values(missing_values_testing_cleaned)
 training_data_cleaned['tourney_date'] = pd.to_datetime(training_data_cleaned['tourney_date'].astype(str), format='%Y%m%d')      # Convert 'tourney_date' to datetime format
 testing_data_cleaned['tourney_date'] = pd.to_datetime(testing_data_cleaned['tourney_date'].astype(str), format='%Y%m%d')
 
-# Feature engineering: calculate rank difference and age difference
+
+
+''' Feature Engineering '''
+
 training_data_cleaned['rank_diff'] = training_data_cleaned['winner_rank'] - training_data_cleaned['loser_rank']
 training_data_cleaned['age_diff'] = training_data_cleaned['winner_age'] - training_data_cleaned['loser_age']
 
@@ -57,7 +68,7 @@ testing_data_cleaned['rank_diff'] = testing_data_cleaned['winner_rank'] - testin
 testing_data_cleaned['age_diff'] = testing_data_cleaned['winner_age'] - testing_data_cleaned['loser_age']
 
 
-# categorical_features
+''' Categorical Encoding and Feature Scaling'''
 
 categorical_features = [
     'tourney_id', 'tourney_name', 'surface', 'tourney_level',
@@ -79,10 +90,6 @@ testing_encoded.columns = one_hot_encoder.get_feature_names_out(categorical_feat
 testing_data_cleaned = testing_data_cleaned.drop(categorical_features, axis=1).reset_index(drop=True)
 testing_data_cleaned = pd.concat([testing_data_cleaned, testing_encoded], axis=1)
 
-
-
-# numerical features
-
 numerical_features = [
     'winner_ht', 'winner_age', 'winner_rank', 'winner_rank_points',
     'loser_ht', 'loser_age', 'loser_rank', 'loser_rank_points',
@@ -102,6 +109,26 @@ print(training_data_cleaned)
 print("\nTesting data after preprocessing:")
 print(testing_data_cleaned)
 
+''' Feature Importance Analysis '''
+
+feature_names = X_train.columns
+coefficients = model.coef_[0]
+
+# Create a DataFrame to display feature importance
+feature_importance = pd.DataFrame({
+    'Feature': feature_names,
+    'Importance': coefficients
+})
+
+# Sort by absolute value of importance
+feature_importance['AbsImportance'] = feature_importance['Importance'].apply(abs)
+feature_importance = feature_importance.sort_values(by='AbsImportance', ascending=False)
+
+print("\nFeature Importance:")
+print(feature_importance[['Feature', 'Importance']])
+
+
+''' Model Training and Testing '''
 
 # Define the target variable
 training_data_cleaned['target'] = (training_data_cleaned['winner_rank'] < training_data_cleaned['loser_rank']).astype(int)
@@ -125,13 +152,15 @@ y_test = testing_data_cleaned['target']
 # Initialize the model
 model = LogisticRegression(max_iter=1000)
 
+
+''' Cross-Validation and Final Evaluation '''
+
 # Perform 5-fold cross-validation
 cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
 
 # Print cross-validation scores
 print(f"Cross-validation scores: {cv_scores}")
 print(f"Mean cross-validation score: {cv_scores.mean()}")
-
 
 # Train the model on the entire training data and evaluate on the test set
 model.fit(X_train, y_train)
@@ -145,30 +174,4 @@ print(f"Test Accuracy: {accuracy}")
 print("Classification Report on Test Data:\n", report)
 
 
-# Baseline model: predict higher-ranked player always wins
-y_baseline_pred = (X_test['winner_rank'] < X_test['loser_rank']).astype(int)
 
-# Evaluate the baseline model
-baseline_accuracy = accuracy_score(y_test, y_baseline_pred)
-baseline_report = classification_report(y_test, y_baseline_pred)
-
-print(f"Baseline Accuracy: {baseline_accuracy}")
-print("Baseline Classification Report:\n", baseline_report)
-
-
-# ******** Feature Importance Analysis ********
-feature_names = X_train.columns
-coefficients = model.coef_[0]
-
-# Create a DataFrame to display feature importance
-feature_importance = pd.DataFrame({
-    'Feature': feature_names,
-    'Importance': coefficients
-})
-
-# Sort by absolute value of importance
-feature_importance['AbsImportance'] = feature_importance['Importance'].apply(abs)
-feature_importance = feature_importance.sort_values(by='AbsImportance', ascending=False)
-
-print("\nFeature Importance:")
-print(feature_importance[['Feature', 'Importance']])
