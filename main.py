@@ -36,8 +36,21 @@ def check_missing_values(data):
 
 def feature_engineering(data):
     
+    # Rank difference
     data['rank_diff'] = data['winner_rank'] - data['loser_rank']
     data['age_diff'] = data['winner_age'] - data['loser_age']
+    
+    # Player performance metrics (assuming data has recent match statistics for players)
+    data['winner_recent_win_pct'] = data.groupby('winner_id')['winner_rank_points'].transform(lambda x: x.rolling(5, min_periods=1).mean())
+    data['loser_recent_win_pct'] = data.groupby('loser_id')['loser_rank_points'].transform(lambda x: x.rolling(5, min_periods=1).mean())
+    
+    # Head-to-Head statistics
+    data['h2h_wins_winner'] = data.apply(lambda row: len(data[(data['winner_id'] == row['winner_id']) & (data['loser_id'] == row['loser_id'])]), axis=1)
+    data['h2h_wins_loser'] = data.apply(lambda row: len(data[(data['loser_id'] == row['winner_id']) & (data['winner_id'] == row['loser_id'])]), axis=1)
+    
+    # Surface preference
+    data['winner_surface_win_pct'] = data.groupby(['winner_id', 'surface'])['winner_rank_points'].transform(lambda x: x.rolling(5, min_periods=1).mean())
+    data['loser_surface_win_pct'] = data.groupby(['loser_id', 'surface'])['loser_rank_points'].transform(lambda x: x.rolling(5, min_periods=1).mean())
     
     return data
 
@@ -78,10 +91,12 @@ def feature_importance(model, X_train):
     return feature_importance_df
 
 
+from sklearn.model_selection import TimeSeriesSplit
+
 def train_and_evaluate_model(X_train, y_train, X_test, y_test):
-    
-    model = LogisticRegression(max_iter=1000)
-    cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
+    model = LogisticRegression(max_iter=10000, solver='newton-cg')
+    tscv = TimeSeriesSplit(n_splits=5)
+    cv_scores = cross_val_score(model, X_train, y_train, cv=tscv, scoring='accuracy')
     
     print(f"Cross-validation scores: {cv_scores}")
     print(f"Mean cross-validation score: {cv_scores.mean()}")
@@ -96,6 +111,7 @@ def train_and_evaluate_model(X_train, y_train, X_test, y_test):
     print("Classification Report on Test Data:\n", report)
     
     return model
+
 
 
 # Constants
